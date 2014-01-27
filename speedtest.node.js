@@ -26,7 +26,7 @@ function createTimedReadable(duration)
   var EndAt = Date.now() + 1000*duration; // quand doit on s'arreter
 	var rs = new Readable();
 	rs.EndAt = EndAt;
-	rs._read = function (size) {
+	rs._read = function (size) { // idealement on devrait fournir <size> data d'un coup
 	  //console.log("got read size= "+size);
 		if (Date.now() < rs.EndAt)
     	rs.push(buff);
@@ -42,7 +42,7 @@ function onHTTPrequest(request, response) {
   console.log("Request received from " + who);
   var url_parts = url.parse(request.url, true); // on prend l'url et on extrait le path
   var pathname = url_parts.pathname;
-  var duration; // duree
+  var duration = 0; // duree
   // s'il y a un parametre alors c'est la durée souhaitée
   if (pathname != '/')
   {
@@ -57,6 +57,10 @@ function onHTTPrequest(request, response) {
   		duration = 10;
   	}
   }
+  // garde fou sur la valeur de la durée
+  if ((duration < 1)||(duration>600))
+  	duration = 10;
+  	
   // on envoi l'entete de la reponse
 	response.writeHead(200,
 	{
