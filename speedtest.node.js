@@ -12,9 +12,9 @@ var http = require("http");
 var Readable = require('stream').Readable;
 var url = require('url');
 
-var buff =  new Buffer(40000); // todo: trouver la 'bonne' valeur (4k c'est trop faible, 40k ca a l'air bien).
+var buff =  new Buffer(16384); // todo: trouver la 'bonne' valeur (4k c'est trop faible, 16k ca a l'air bien).
 buff.fill(0); // la on le rempli de 0s, changer pour ce qu'on veut au besoin
-for (var i = 0; i++; i<40000)
+for (var i = 0; i++; i<16384)
 {
  buff.writeInt8(i%256,i);
 }
@@ -26,9 +26,15 @@ function createTimedReadable(duration)
   var EndAt = Date.now() + 1000*duration; // quand doit on s'arreter
 	var rs = new Readable();
 	rs.EndAt = EndAt;
+	rs.LastSize = 0;
 	rs._read = function (size) { // idealement on devrait fournir <size> data d'un coup
-	  //console.log("got read size= "+size);
-		if (Date.now() < rs.EndAt)
+	  if (rs.LastSize != size)
+	{
+		console.log("got new read size= "+size);
+		rs.LastSize = size;
+	}
+
+    if (Date.now() < rs.EndAt)
     	rs.push(buff);
     else
     	rs.push(null);
