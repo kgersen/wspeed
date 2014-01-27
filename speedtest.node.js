@@ -8,8 +8,6 @@
 //  http://localhost:8888/20 
 // le port est en 'dur' dans le code.
 
-
-
 var http = require("http");
 var Readable = require('stream').Readable;
 var url = require('url');
@@ -29,7 +27,7 @@ function createTimedReadable(duration)
 	var rs = new Readable();
 	rs.EndAt = EndAt;
 	rs._read = function (size) {
-	  console.log("got read size= "+size);
+	  //console.log("got read size= "+size);
 		if (Date.now() < rs.EndAt)
     	rs.push(buff);
     else
