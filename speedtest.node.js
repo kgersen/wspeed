@@ -6,8 +6,18 @@
 // ou url_duserveur:port/duree (durée en parametre (secondes)
 // par exemple:
 //  http://localhost:8888/20 
-// le port est en 'dur' dans le code.
 
+// Parametres du script. todo: les recuperer en parametres de ligne de commande
+const PORT = 8888
+const DEFAULT_DURATION = 10
+const MAX_DURATION = 600
+
+// version de Node
+console.log('Using Node version ' + process.version);
+// correction bug du tick
+process.maxTickDepth = Infinity;
+
+// dependencies
 var http = require("http");
 var Readable = require('stream').Readable;
 var url = require('url');
@@ -19,11 +29,11 @@ for (var i = 0; i++; i<16384)
  buff.writeInt8(i%256,i);
 }
 
-console.log ("buffer filled" + buff);
+//console.log ("buffer filled" + buff);
 // cette fonction crée un Stream d'une durée de <duration> secondes dont le contenu est <buff> en boucle.
 function createTimedReadable(duration)
 {
-  var EndAt = Date.now() + 1000*duration; // quand doit on s'arreter
+  var EndAt = new Date().getTime() + 1000*duration; // quand doit on s'arreter
 	var rs = new Readable();
 	rs.EndAt = EndAt;
 	rs.LastSize = 0;
@@ -34,7 +44,7 @@ function createTimedReadable(duration)
 		rs.LastSize = size;
 	}
 
-    if (Date.now() < rs.EndAt)
+    if ((new Date().getTime()) < rs.EndAt)
     	rs.push(buff);
     else
     	rs.push(null);
@@ -48,7 +58,7 @@ function onHTTPrequest(request, response) {
   console.log("Request received from " + who);
   var url_parts = url.parse(request.url, true); // on prend l'url et on extrait le path
   var pathname = url_parts.pathname;
-  var duration = 0; // duree
+  var duration = DEFAULT_DURATION; // duree
   // s'il y a un parametre alors c'est la durée souhaitée
   if (pathname != '/')
   {
@@ -60,12 +70,12 @@ function onHTTPrequest(request, response) {
   	else
   	{
   		// c'est pas un nombre, on met la durée par défaut
-  		duration = 10;
+  		duration = DEFAULT_DURATION;
   	}
   }
   // garde fou sur la valeur de la durée
-  if ((duration < 1)||(duration>600))
-  	duration = 10;
+  if ((duration < 1)||(duration>MAX_DURATION))
+  	duration = DEFAULT_DURATION;
   	
   // on envoi l'entete de la reponse
 	response.writeHead(200,
@@ -80,5 +90,5 @@ function onHTTPrequest(request, response) {
 }
 
 // on lance le serveur
-http.createServer(onHTTPrequest).listen(8888);
+http.createServer(onHTTPrequest).listen(PORT);
 console.log("Server has started");
