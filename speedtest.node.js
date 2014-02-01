@@ -11,6 +11,7 @@
 const PORT = 8888
 const DEFAULT_DURATION = 10
 const MAX_DURATION = 600
+const BUFFSIZE = 16384
 
 // version de Node
 console.log('Using Node version ' + process.version);
@@ -22,33 +23,52 @@ var http = require("http");
 var Readable = require('stream').Readable;
 var url = require('url');
 
-var buff =  new Buffer(16384); // todo: trouver la 'bonne' valeur (4k c'est trop faible, 16k ca a l'air bien).
-buff.fill(0); // la on le rempli de 0s, changer pour ce qu'on veut au besoin
-for (var i = 0; i++; i<16384)
+var buff =  new Buffer(BUFFSIZE);
+for (var i = 0; i++; i<BUFFSIZE)
 {
- buff.writeInt8(i%256,i);
+	buff[i] = i%256;
 }
+var buffsize = BUFFSIZE;
 
-//console.log ("buffer filled" + buff);
+console.log ("Buffer size is " + buffsize);
 // cette fonction crée un Stream d'une durée de <duration> secondes dont le contenu est <buff> en boucle.
-function createTimedReadable(duration)
+function createTimedReadable(duration,who)
 {
-  var EndAt = new Date().getTime() + 1000*duration; // quand doit on s'arreter
-	var rs = new Readable();
-	rs.EndAt = EndAt;
-	rs.LastSize = 0;
-	rs._read = function (size) { // idealement on devrait fournir <size> data d'un coup
-	  if (rs.LastSize != size)
-	{
-		console.log("got new read size= "+size);
-		rs.LastSize = size;
-	}
 
-    if ((new Date().getTime()) < rs.EndAt)
-    	rs.push(buff);
-    else
-    	rs.push(null);
-  }
+	var rs = new Readable();
+
+	rs.duration =  duration;
+	rs.EndDate = new Date().getTime() + 1000*duration; // quand doit on s'arreter
+	rs.LastSize = 0;
+	rs.CallCount = 0;
+	rs.PushCount = 0;
+	rs.TotalBytes = 0;
+
+	rs._read = function (size) {
+	  if (rs.LastSize != size)
+		{
+			console.log(who + " read size= "+size);
+			rs.LastSize = size;
+			if (size > buffsize)
+				console.log(who + " WARNING will starve - buffer too small");
+		}
+		rs.CallCount++;
+		var bDontStop = (new Date().getTime()) < rs.EndDate;
+		var bPushMore = true;
+		while (bPushMore && bDontStop)
+		{
+			bPushMore = rs.push(buff);
+			rs.TotalBytes += buffsize;
+			rs.PushCount++;
+			bDontStop = (new Date().getTime()) < rs.EndDate;
+		}
+		if (!bDontStop)
+		{
+			console.log(who + " has ended - called "+rs.CallCount+" times, and " + rs.PushCount + " loops. " + rs.TotalBytes +" bytes in " + rs.duration + " second(s)");
+			console.log(who + " speed = " + (rs.TotalBytes/(1024*1024)/rs.duration) + " MB/s");
+			rs.push(null);
+		}
+	}
   return(rs);
 }
 
@@ -65,7 +85,7 @@ function onHTTPrequest(request, response) {
   	duration = parseInt(pathname.slice(1));
   	if (duration != NaN)
   	{
-  		console.log("got a valid duration parameter: "+duration);
+  		console.log(who + " got a valid duration parameter: "+duration);
   	}
   	else
   	{
@@ -73,10 +93,12 @@ function onHTTPrequest(request, response) {
   		duration = DEFAULT_DURATION;
   	}
   }
+  
   // garde fou sur la valeur de la durée
-  if ((duration < 1)||(duration>MAX_DURATION))
-  	duration = DEFAULT_DURATION;
-  	
+	if ((duration < 1)||(duration>MAX_DURATION))
+		duration = DEFAULT_DURATION;
+  
+
   // on envoi l'entete de la reponse
 	response.writeHead(200,
 	{
@@ -85,10 +107,10 @@ function onHTTPrequest(request, response) {
   });
 
   // on 'pipe' le contenu sur un stream de durée <duration>
-	var timedReadable = createTimedReadable(duration);
+	var timedReadable = createTimedReadable(duration,who);
   timedReadable.pipe(response);
 }
 
 // on lance le serveur
 http.createServer(onHTTPrequest).listen(PORT);
-console.log("Server has started on port "+PORT);
+console.log("Server has started");
