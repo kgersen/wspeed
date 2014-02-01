@@ -91,4 +91,4 @@ function onHTTPrequest(request, response) {
 
 // on lance le serveur
 http.createServer(onHTTPrequest).listen(PORT);
-console.log("Server has started");
+console.log("Server has started on port "+PORT);
